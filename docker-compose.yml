@@ -1,0 +1,151 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-app}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-app}
+      POSTGRES_DB: postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-app}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - app-network
+
+  mongo:
+    image: mongo:7
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME:-root}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD:-root}
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - app-network
+
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - app-network
+
+  auth-service:
+    build: ./services/auth-service
+    environment:
+      PORT: 3001
+      DATABASE_URL: postgresql://${POSTGRES_USER:-app}:${POSTGRES_PASSWORD:-app}@postgres:5432/auth_db
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - app-network
+
+  job-service:
+    build: ./services/job-service
+    environment:
+      PORT: 3002
+      DATABASE_URL: postgresql://${POSTGRES_USER:-app}:${POSTGRES_PASSWORD:-app}@postgres:5432/jobs_db
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
+      INTERNAL_WEBHOOK_SECRET: ${INTERNAL_WEBHOOK_SECRET:-internal-secret}
+      NOTIFICATION_SERVICE_URL: http://notification-service:3004
+      MEDIA_SERVICE_URL: http://media-service:3003
+      JOB_DELAY_MS: 10000
+    depends_on:
+      postgres:
+        condition: service_healthy
+      notification-service:
+        condition: service_started
+      media-service:
+        condition: service_started
+    networks:
+      - app-network
+
+  media-service:
+    build: ./services/media-service
+    environment:
+      PORT: 3003
+      MONGODB_URI: mongodb://${MONGO_INITDB_ROOT_USERNAME:-root}:${MONGO_INITDB_ROOT_PASSWORD:-root}@mongo:27017/media_metadata_db?authSource=admin
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
+      MINIO_ENDPOINT: minio
+      MINIO_PORT: 9000
+      MINIO_USE_SSL: "false"
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      MINIO_BUCKET: ${MINIO_BUCKET:-media}
+      INTERNAL_WEBHOOK_SECRET: ${INTERNAL_WEBHOOK_SECRET:-internal-secret}
+      MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-512}
+    depends_on:
+      mongo:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    networks:
+      - app-network
+
+  notification-service:
+    build: ./services/notification-service
+    environment:
+      PORT: 3004
+      MONGODB_URI: mongodb://${MONGO_INITDB_ROOT_USERNAME:-root}:${MONGO_INITDB_ROOT_PASSWORD:-root}@mongo:27017/notifications_db?authSource=admin
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
+      INTERNAL_WEBHOOK_SECRET: ${INTERNAL_WEBHOOK_SECRET:-internal-secret}
+    depends_on:
+      mongo:
+        condition: service_healthy
+    networks:
+      - app-network
+
+  api-gateway:
+    build: ./api-gateway
+    ports:
+      - "8080:80"
+    depends_on:
+      - auth-service
+      - job-service
+      - media-service
+      - notification-service
+    networks:
+      - app-network
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:8080}
+    ports:
+      - "5173:80"
+    depends_on:
+      - api-gateway
+    networks:
+      - app-network
+
+volumes:
+  postgres_data:
+  mongo_data:
+  minio_data:
+
+networks:
+  app-network:
+    driver: bridge
