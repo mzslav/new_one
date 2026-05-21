@@ -16,21 +16,6 @@ services:
     networks:
       - app-network
 
-  mongo:
-    image: mongo:7
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME:-root}
-      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD:-root}
-    volumes:
-      - mongo_data:/data/db
-    healthcheck:
-      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-    networks:
-      - app-network
-
   minio:
     image: minio/minio:latest
     command: server /data --console-address ":9001"
@@ -86,7 +71,9 @@ services:
     build: ./services/media-service
     environment:
       PORT: 3003
-      MONGODB_URI: mongodb://${MONGO_INITDB_ROOT_USERNAME:-root}:${MONGO_INITDB_ROOT_PASSWORD:-root}@mongo:27017/media_metadata_db?authSource=admin
+      AWS_REGION: ${AWS_REGION:-eu-north-1}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
       JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
       MINIO_ENDPOINT: minio
       MINIO_PORT: 9000
@@ -97,8 +84,6 @@ services:
       INTERNAL_WEBHOOK_SECRET: ${INTERNAL_WEBHOOK_SECRET:-internal-secret}
       MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-512}
     depends_on:
-      mongo:
-        condition: service_healthy
       minio:
         condition: service_healthy
     networks:
@@ -108,12 +93,11 @@ services:
     build: ./services/notification-service
     environment:
       PORT: 3004
-      MONGODB_URI: mongodb://${MONGO_INITDB_ROOT_USERNAME:-root}:${MONGO_INITDB_ROOT_PASSWORD:-root}@mongo:27017/notifications_db?authSource=admin
+      AWS_REGION: ${AWS_REGION:-eu-north-1}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
       JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
       INTERNAL_WEBHOOK_SECRET: ${INTERNAL_WEBHOOK_SECRET:-internal-secret}
-    depends_on:
-      mongo:
-        condition: service_healthy
     networks:
       - app-network
 
@@ -143,7 +127,6 @@ services:
 
 volumes:
   postgres_data:
-  mongo_data:
   minio_data:
 
 networks:

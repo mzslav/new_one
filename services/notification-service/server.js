@@ -1,5 +1,5 @@
 const express = require('express');
-const { connectMongo } = require('./db/mongo');
+const { connectDynamo } = require('./db/dynamo');
 const notificationRoutes = require('./routes/notifications');
 
 const app = express();
@@ -14,11 +14,11 @@ async function start() {
   let attempts = 0;
   while (attempts < 15) {
     try {
-      await connectMongo();
+      await connectDynamo();
       break;
     } catch (err) {
       attempts += 1;
-      console.warn(`notification-service: Mongo not ready (${attempts}/15): ${err.message}`);
+      console.warn(`notification-service: DynamoDB not ready (${attempts}/15): ${err.message}`);
       await new Promise((r) => setTimeout(r, 2000));
     }
   }

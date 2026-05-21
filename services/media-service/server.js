@@ -1,5 +1,5 @@
 const express = require('express');
-const { connectMongo } = require('./db/mongo');
+const { connectDynamo } = require('./db/dynamo');
 const { ensureBucket } = require('./storage/minio');
 const mediaRoutes = require('./routes/media');
 
@@ -27,7 +27,7 @@ async function withRetry(fn, label) {
 }
 
 async function start() {
-  await withRetry(connectMongo, 'Mongo');
+  await withRetry(connectDynamo, 'DynamoDB');
   await withRetry(ensureBucket, 'MinIO');
   app.listen(PORT, () => console.log(`media-service listening on :${PORT}`));
 }
