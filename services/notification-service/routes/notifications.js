@@ -1,11 +1,14 @@
 const express = require('express');
 const crypto = require('crypto');
 const { PutCommand, QueryCommand, UpdateCommand } = require('@aws-sdk/lib-dynamodb');
+const { SNSClient, PublishCommand } = require("@aws-sdk/client-sns");
 const { verifyToken } = require('../middleware/auth');
 const { getDb } = require('../db/dynamo');
 
 const router = express.Router();
 const TABLE_NAME = 'notification-service';
+
+const snsClient = new SNSClient({ region: process.env.AWS_REGION });
 
 router.post('/internal', async (req, res) => {
   const provided = req.headers['x-internal-secret'];
@@ -17,7 +20,7 @@ router.post('/internal', async (req, res) => {
   try {
     const doc = {
       userId: String(userId),
-      createdAt: new Date().toISOString(), // Sort Key
+      createdAt: new Date().toISOString(),
       id: crypto.randomUUID(),
       jobId: String(jobId),
       message: String(message),
@@ -26,6 +29,13 @@ router.post('/internal', async (req, res) => {
     };
     
     await getDb().send(new PutCommand({ TableName: TABLE_NAME, Item: doc }));
+
+    await snsClient.send(new PublishCommand({
+      TopicArn: process.env.SNS_TOPIC_ARN,
+      Message: JSON.stringify({ userId, jobId, message, status }),
+      Subject: "New Notification from Fluxon"
+    }));
+
     return res.status(201).json({ id: doc.id });
   } catch (err) {
     console.error('save notification error', err);
@@ -39,7 +49,7 @@ router.get('/', verifyToken, async (req, res) => {
       TableName: TABLE_NAME,
       KeyConditionExpression: 'userId = :uid',
       ExpressionAttributeValues: { ':uid': String(req.user.userId) },
-      ScanIndexForward: false, // Sort descending (newest first)
+      ScanIndexForward: false,
       Limit: 50
     }));
 
@@ -59,7 +69,6 @@ router.get('/', verifyToken, async (req, res) => {
 
 router.patch('/read-all', verifyToken, async (req, res) => {
   try {
-    // В DynamoDB немає updateMany, тому ми знаходимо непрочитані і оновлюємо по одному
     const { Items } = await getDb().send(new QueryCommand({
       TableName: TABLE_NAME,
       KeyConditionExpression: 'userId = :uid',
