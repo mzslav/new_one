@@ -4,14 +4,14 @@ proxy_hide_header Access-Control-Allow-Methods;
 proxy_hide_header Access-Control-Allow-Headers;
 proxy_hide_header Access-Control-Expose-Headers;
 
-add_header 'Access-Control-Allow-Origin' $cors_origin always;
+add_header 'Access-Control-Allow-Origin' '$http_origin' always;
 add_header 'Access-Control-Allow-Credentials' 'true' always;
 add_header 'Access-Control-Allow-Methods' 'GET, POST, PUT, PATCH, DELETE, OPTIONS' always;
 add_header 'Access-Control-Allow-Headers' 'Authorization, Content-Type, Accept, X-Requested-With' always;
 add_header 'Access-Control-Expose-Headers' 'Content-Length, Content-Range' always;
 
 if ($request_method = 'OPTIONS') {
-    add_header 'Access-Control-Allow-Origin' $cors_origin always;
+    add_header 'Access-Control-Allow-Origin' '$http_origin' always;
     add_header 'Access-Control-Allow-Credentials' 'true' always;
     add_header 'Access-Control-Allow-Methods' 'GET, POST, PUT, PATCH, DELETE, OPTIONS' always;
     add_header 'Access-Control-Allow-Headers' 'Authorization, Content-Type, Accept, X-Requested-With' always;

@@ -8,13 +8,23 @@ const minioClient = new Client({
   useSSL: String(process.env.MINIO_USE_SSL).toLowerCase() === 'true',
   accessKey: process.env.MINIO_ACCESS_KEY,
   secretKey: process.env.MINIO_SECRET_KEY,
+  region: process.env.AWS_REGION || 'eu-north-1',
 });
 
 async function ensureBucket() {
-  const exists = await minioClient.bucketExists(BUCKET).catch(() => false);
-  if (!exists) {
-    await minioClient.makeBucket(BUCKET);
-    console.log(`media-service: created MinIO bucket "${BUCKET}"`);
+  try {
+    await minioClient.bucketExists(BUCKET);
+  } catch (err) {
+    try {
+      await minioClient.makeBucket(BUCKET, process.env.AWS_REGION || 'eu-north-1');
+      console.log(`media-service: created bucket "${BUCKET}"`);
+    } catch (createErr) {
+      if (createErr.message.includes('already own it') || createErr.code === 'BucketAlreadyOwnedByYou') {
+        console.log(`media-service: bucket "${BUCKET}" already exists and is owned by you.`);
+        return;
+      }
+      throw createErr;
+    }
   }
 }
 
