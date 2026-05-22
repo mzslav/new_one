@@ -8,3 +8,5 @@ build/
 .vscode/
 .idea/
 coverage/
+
+key_aws-media-worker.txt
