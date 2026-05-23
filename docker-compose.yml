@@ -39,11 +39,10 @@ services:
     build: ./services/auth-service
     environment:
       PORT: 3001
-      DATABASE_URL: postgresql://${POSTGRES_USER:-app}:${POSTGRES_PASSWORD:-app}@postgres:5432/auth_db
-      JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
-    depends_on:
-      postgres:
-        condition: service_healthy
+      AWS_REGION: ${AWS_REGION:-eu-north-1}
+      COGNITO_CLIENT_ID: ${COGNITO_CLIENT_ID}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
     networks:
       - app-network
 
@@ -51,8 +50,10 @@ services:
     build: ./services/job-service
     environment:
       PORT: 3002
+      AWS_REGION: ${AWS_REGION:-eu-north-1}
       DATABASE_URL: postgresql://${POSTGRES_USER:-app}:${POSTGRES_PASSWORD:-app}@postgres:5432/jobs_db
-      JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
+      COGNITO_USER_POOL_ID: ${COGNITO_USER_POOL_ID}
+      COGNITO_CLIENT_ID: ${COGNITO_CLIENT_ID}
       INTERNAL_WEBHOOK_SECRET: ${INTERNAL_WEBHOOK_SECRET:-internal-secret}
       NOTIFICATION_SERVICE_URL: http://notification-service:3004
       MEDIA_SERVICE_URL: http://media-service:3003
@@ -72,9 +73,11 @@ services:
     environment:
       PORT: 3003
       AWS_REGION: ${AWS_REGION:-eu-north-1}
-      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
-      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
-      JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      COGNITO_USER_POOL_ID: ${COGNITO_USER_POOL_ID}
+      COGNITO_CLIENT_ID: ${COGNITO_CLIENT_ID}
+      FILES_TABLE: ${FILES_TABLE:-fluxon-files}
       MINIO_ENDPOINT: minio
       MINIO_PORT: 9000
       MINIO_USE_SSL: "false"
@@ -94,9 +97,12 @@ services:
     environment:
       PORT: 3004
       AWS_REGION: ${AWS_REGION:-eu-north-1}
-      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
-      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
-      JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      COGNITO_USER_POOL_ID: ${COGNITO_USER_POOL_ID}
+      COGNITO_CLIENT_ID: ${COGNITO_CLIENT_ID}
+      NOTIFICATIONS_TABLE: ${NOTIFICATIONS_TABLE:-fluxon-notifications}
+      SNS_TOPIC_ARN: ${SNS_TOPIC_ARN:-}
       INTERNAL_WEBHOOK_SECRET: ${INTERNAL_WEBHOOK_SECRET:-internal-secret}
     networks:
       - app-network

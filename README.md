@@ -1,65 +1,88 @@
 # Fluxon — AI Media Studio
 
-A B2B media processing platform implemented as a Docker Compose monorepo. The
-local stack mimics an AWS Fargate deployment: MinIO substitutes for S3, an
-internal webhook substitutes for SNS, and PostgreSQL / MongoDB stand in for
-RDS / DocumentDB.
+Microservice web app: React frontend, 4 backend services on Docker (local) / AWS Fargate (production).
 
-## Architecture
+## Services
 
-| Component | Tech | Role |
-|-----------|------|------|
-| `frontend` | React + Vite + Tailwind, served by nginx | UI: login, dashboard, upload, polling |
-| `api-gateway` | nginx | Routes `/api/*` to the right microservice, handles CORS |
-| `auth-service` | Node.js / Express + PostgreSQL (`auth_db`) | Register & login, issues JWTs |
-| `job-service` | Node.js / Express + PostgreSQL (`jobs_db`) | Creates jobs, runs the 10 s mock AI step, posts webhook |
-| `media-service` | Node.js / Express + MongoDB (`media_metadata_db`) + MinIO | Multipart upload, streams files back |
-| `notification-service` | Node.js / Express + MongoDB (`notifications_db`) | Receives webhooks, serves notifications |
-| `postgres` / `mongo` / `minio` | Infra containers | Persistence + S3-compatible object storage |
+| Service | Role | Database / AWS |
+|---------|------|----------------|
+| `auth-service` | Register & login | **Amazon Cognito** |
+| `job-service` | Processing jobs | **RDS PostgreSQL** (`jobs_db`) |
+| `media-service` | Upload & download files | **DynamoDB** + **S3** (MinIO locally) |
+| `notification-service` | User notifications | **DynamoDB** + **SNS** |
+| `api-gateway` | Routes `/api/*` to services | nginx |
+| `frontend` | UI | static nginx |
 
-All HTTP traffic from the browser goes through `http://localhost:8080`
-(the API gateway). Internal service-to-service calls use Docker DNS, e.g.
-`http://notification-service:3004/api/notifications/internal`.
-
-## Run
+## Deploy on AWS (from zero)
 
 ```bash
-cp .env.example .env   # optional, defaults work for local dev
+cd terraform && terraform init && terraform apply
+cd .. && bash terraform/scripts/deploy.sh
+```
+
+Details: [terraform/README.md](terraform/README.md)
+
+## Local run
+
+1. Copy env and fill Cognito + AWS credentials (DynamoDB tables must exist in AWS):
+
+```bash
+cp .env.example .env
+```
+
+2. In Cognito User Pool (for dev): enable **USER_PASSWORD_AUTH**, and either auto-confirm users or confirm email manually.
+
+3. Create DynamoDB tables (or use Terraform later):
+
+- `fluxon-files` — partition key `userId` (S), sort key `id` (S)
+- `fluxon-notifications` — partition key `userId` (S), sort key `createdAt` (S)
+
+4. Start stack:
+
+```bash
 docker compose up -d --build
 ```
 
-Then open:
+- App: http://localhost:5173  
+- API: http://localhost:8080  
+- MinIO console: http://localhost:9001  
 
-- App: http://localhost:5173
-- API gateway: http://localhost:8080
-- MinIO console: http://localhost:9001 (user/pass from `.env.example`)
+## API (via gateway :8080)
 
-To stop and clean up volumes:
+| Method | Path |
+|--------|------|
+| POST | `/api/auth/register` |
+| POST | `/api/auth/login` |
+| POST | `/api/media/upload` |
+| GET | `/api/media/:id` |
+| GET | `/api/media/:id/meta` |
+| POST | `/api/jobs` |
+| GET | `/api/jobs` |
+| GET | `/api/jobs/:id` |
+| GET | `/api/notifications` |
 
-```bash
-docker compose down -v
-```
+Internal (not via gateway): `POST /api/notifications/internal`, `POST /api/media/internal/processed`
 
-## User flow
+## AWS / Terraform checklist
 
-1. Register or sign in (auth-service).
-2. Click "Upload new media", pick a file and an action type. The frontend
-   uploads via media-service, then creates a job via job-service.
-3. The job starts as `Pending`. After ~10 seconds the job-service flips it to
-   `Completed` and pushes a notification through the internal webhook.
-4. The dashboard auto-polls every 5 seconds while any job is pending, so the
-   status and the notifications bell update on their own.
+Terraform should create and pass to ECS tasks:
 
-## Endpoints (through the gateway)
+| Variable | Service |
+|----------|---------|
+| `COGNITO_USER_POOL_ID`, `COGNITO_CLIENT_ID` | auth, job, media, notification |
+| `DATABASE_URL` | job-service (RDS) |
+| `FILES_TABLE`, `NOTIFICATIONS_TABLE` | media, notification |
+| `S3_BUCKET` | media (uses S3 instead of MinIO) |
+| `SNS_TOPIC_ARN` | notification |
+| `INTERNAL_WEBHOOK_SECRET` | job, media, notification |
+| `NOTIFICATION_SERVICE_URL`, `MEDIA_SERVICE_URL` | job (internal URLs) |
+| `AWS_REGION` | all |
 
-- `POST /api/auth/register` – `{ email, password }` → `{ token, user }`
-- `POST /api/auth/login` – `{ email, password }` → `{ token, user }`
-- `POST /api/media/upload` – `multipart/form-data` field `file` → `{ fileId }`
-- `GET /api/media/:id` – streams the uploaded file back
-- `POST /api/jobs` – `{ fileId, actionType }` → job (status: `Pending`)
-- `GET /api/jobs` – list of the user's jobs
-- `GET /api/jobs/:id` – one job
-- `GET /api/notifications` – list of the user's notifications
+Use **IAM task roles** on Fargate instead of hard-coded `AWS_ACCESS_KEY_ID` when possible.
 
-`POST /api/notifications/internal` is intentionally blocked at the gateway and
-is only reachable from inside the Docker network.
+Each Fargate service: min **2 tasks**, target tracking autoscaling, health check on `/health`.
+
+## Storage switch
+
+- **Local:** MinIO (`MINIO_*` vars, no `S3_BUCKET`)
+- **AWS:** set `S3_BUCKET` — media-service uses AWS S3 SDK automatically

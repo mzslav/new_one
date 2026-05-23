@@ -4,14 +4,14 @@ const crypto = require('crypto');
 const { PutCommand, GetCommand } = require('@aws-sdk/lib-dynamodb');
 const { verifyToken } = require('../middleware/auth');
 const { getDb } = require('../db/dynamo');
-const { minioClient, BUCKET } = require('../storage/minio');
+const { putObject, getObjectStream } = require('../storage');
 const { generateMockOutput } = require('../lib/generateMockOutput');
 
 const router = express.Router();
 const INTERNAL_SECRET = process.env.INTERNAL_WEBHOOK_SECRET;
 const MAX_UPLOAD_MB = Number(process.env.MAX_UPLOAD_MB) || 512;
 const MAX_FILE_BYTES = MAX_UPLOAD_MB * 1024 * 1024;
-const TABLE_NAME = 'fluxon-files';
+const TABLE_NAME = process.env.FILES_TABLE || 'fluxon-files';
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -37,7 +37,7 @@ router.post('/upload', verifyToken, (req, res, next) => {
   const objectKey = `${userId}/${fileId}.${ext}`;
 
   try {
-    await minioClient.putObject(BUCKET, objectKey, req.file.buffer, req.file.size, { 'Content-Type': req.file.mimetype });
+    await putObject(objectKey, req.file.buffer, req.file.size, req.file.mimetype);
 
     const doc = {
       userId: String(userId),
@@ -48,7 +48,7 @@ router.post('/upload', verifyToken, (req, res, next) => {
       mimetype: req.file.mimetype,
       createdAt: new Date().toISOString(),
     };
-    
+
     await getDb().send(new PutCommand({ TableName: TABLE_NAME, Item: doc }));
 
     return res.status(201).json({
@@ -73,9 +73,9 @@ router.post('/internal/processed', async (req, res) => {
   try {
     const { Item: source } = await getDb().send(new GetCommand({
       TableName: TABLE_NAME,
-      Key: { userId: String(userId), id: String(fileId) }
+      Key: { userId: String(userId), id: String(fileId) },
     }));
-    
+
     if (!source) return res.status(404).json({ error: 'Source file not found' });
 
     const { buffer, processedName, mimetype, size } = generateMockOutput({
@@ -83,7 +83,7 @@ router.post('/internal/processed', async (req, res) => {
     });
 
     const objectKey = `processed/${userId}/${jobId}/${processedName}`;
-    await minioClient.putObject(BUCKET, objectKey, buffer, size, { 'Content-Type': mimetype });
+    await putObject(objectKey, buffer, size, mimetype);
 
     const newFileId = crypto.randomUUID();
     const doc = {
@@ -112,7 +112,7 @@ router.post('/internal/processed', async (req, res) => {
 router.get('/:id/meta', verifyToken, async (req, res) => {
   const { Item: file } = await getDb().send(new GetCommand({
     TableName: TABLE_NAME,
-    Key: { userId: String(req.user.userId), id: String(req.params.id) }
+    Key: { userId: String(req.user.userId), id: String(req.params.id) },
   }));
 
   if (!file) return res.status(404).json({ error: 'File not found' });
@@ -130,13 +130,13 @@ router.get('/:id/meta', verifyToken, async (req, res) => {
 router.get('/:id', verifyToken, async (req, res) => {
   const { Item: file } = await getDb().send(new GetCommand({
     TableName: TABLE_NAME,
-    Key: { userId: String(req.user.userId), id: String(req.params.id) }
+    Key: { userId: String(req.user.userId), id: String(req.params.id) },
   }));
 
   if (!file) return res.status(404).json({ error: 'File not found' });
 
   try {
-    const stream = await minioClient.getObject(BUCKET, file.objectKey);
+    const stream = await getObjectStream(file.objectKey);
     const isText = String(file.mimetype || '').startsWith('text/');
     res.setHeader('Content-Type', file.mimetype || 'application/octet-stream');
     res.setHeader('Content-Length', String(file.size));

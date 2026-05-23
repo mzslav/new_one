@@ -1,2 +1,1 @@
-CREATE DATABASE auth_db;
 CREATE DATABASE jobs_db;

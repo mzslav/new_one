@@ -1,0 +1,9 @@
+aws_region          = "eu-north-1"
+project_name        = "fluxon"
+name_suffix         = "84721"
+db_instance_class   = "db.t3.micro"
+ecs_cpu             = "256"
+ecs_memory          = "512"
+ecs_min_tasks       = 2
+ecs_max_tasks       = 4
+container_image_tag = "latest"

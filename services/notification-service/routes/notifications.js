@@ -6,7 +6,7 @@ const { verifyToken } = require('../middleware/auth');
 const { getDb } = require('../db/dynamo');
 
 const router = express.Router();
-const TABLE_NAME = 'notification-service';
+const TABLE_NAME = process.env.NOTIFICATIONS_TABLE || 'fluxon-notifications';
 
 const snsClient = new SNSClient({ region: process.env.AWS_REGION });
 
@@ -30,11 +30,13 @@ router.post('/internal', async (req, res) => {
     
     await getDb().send(new PutCommand({ TableName: TABLE_NAME, Item: doc }));
 
-    await snsClient.send(new PublishCommand({
-      TopicArn: process.env.SNS_TOPIC_ARN,
-      Message: JSON.stringify({ userId, jobId, message, status }),
-      Subject: "New Notification from Fluxon"
-    }));
+    if (process.env.SNS_TOPIC_ARN) {
+      await snsClient.send(new PublishCommand({
+        TopicArn: process.env.SNS_TOPIC_ARN,
+        Message: JSON.stringify({ userId, jobId, message, status }),
+        Subject: 'New Notification from Fluxon',
+      }));
+    }
 
     return res.status(201).json({ id: doc.id });
   } catch (err) {

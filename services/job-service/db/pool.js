@@ -1,7 +1,11 @@
 const { Pool } = require('pg');
 
+const connectionString = process.env.DATABASE_URL || '';
+const useSsl = connectionString.includes('rds.amazonaws.com');
+
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
+  connectionString,
+  ssl: useSsl ? { rejectUnauthorized: false } : false,
 });
 
 async function initSchema() {
@@ -9,7 +13,7 @@ async function initSchema() {
     CREATE EXTENSION IF NOT EXISTS "pgcrypto";
     CREATE TABLE IF NOT EXISTS jobs (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      user_id UUID NOT NULL,
+      user_id TEXT NOT NULL,
       file_id TEXT NOT NULL,
       action_type TEXT NOT NULL,
       status TEXT NOT NULL DEFAULT 'Pending',
