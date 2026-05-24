@@ -29,7 +29,7 @@ resource "random_password" "webhook" {
   special = false
 }
 
-# --- Security groups (default VPC) ---
+# --- Security groups ---
 resource "aws_security_group" "alb" {
   name        = "${local.name_prefix}-alb-sg"
   description = "HTTP to ALB"
@@ -288,7 +288,7 @@ resource "aws_iam_role" "task_basic" {
   })
 }
 
-# --- ALB (HTTP API) ---
+# --- ALB ---
 resource "aws_lb" "main" {
   name               = "${local.name_prefix}-alb"
   internal           = false

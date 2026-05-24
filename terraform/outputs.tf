@@ -3,17 +3,17 @@ output "aws_region" {
 }
 
 output "website_url" {
-  description = "Frontend (S3 static website, HTTP)"
+  description = "Frontend"
   value       = module.frontend.website_url
 }
 
 output "api_url" {
-  description = "Backend API (ALB → gateway, HTTP)"
+  description = "Backend API"
   value       = "http://${aws_lb.main.dns_name}"
 }
 
 output "vite_api_url_for_frontend_build" {
-  description = "VITE_API_URL для збірки React"
+  description = "VITE_API_URL"
   value       = "http://${aws_lb.main.dns_name}"
 }
 

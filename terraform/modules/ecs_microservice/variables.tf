@@ -12,7 +12,7 @@ variable "container_port" {
 
 variable "discovery_name" {
   type        = string
-  description = "DNS name for Service Connect (e.g. auth-service)"
+  description = "DNS name for Service Connect"
 }
 
 variable "image_uri" {
