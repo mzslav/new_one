@@ -113,34 +113,20 @@ resource "aws_cloudwatch_dashboard" "main" {
   dashboard_body = jsonencode({
     widgets = [
       {
-        type   = "text"
-        x      = 0
-        y      = 0
-        width  = 24
-        height = 1
-        properties = {
-          markdown = "# ${var.name_prefix} operations dashboard"
-        }
-      },
-      {
         type   = "metric"
         x      = 0
-        y      = 1
+        y      = 0
         width  = 12
         height = 6
         properties = {
-          title  = "Jobs Lambda invocations and errors"
+          title  = "Jobs Lambda errors"
           region = var.aws_region
           view   = "timeSeries"
           period = 60
           metrics = [
-            ["AWS/Lambda", "Invocations", "FunctionName", var.jobs_lambda_function_names.create, { stat = "Sum", label = "create invocations" }],
             [".", "Errors", ".", var.jobs_lambda_function_names.create, { stat = "Sum", label = "create errors" }],
-            [".", "Invocations", ".", var.jobs_lambda_function_names.list, { stat = "Sum", label = "list invocations" }],
             [".", "Errors", ".", var.jobs_lambda_function_names.list, { stat = "Sum", label = "list errors" }],
-            [".", "Invocations", ".", var.jobs_lambda_function_names.get, { stat = "Sum", label = "get invocations" }],
             [".", "Errors", ".", var.jobs_lambda_function_names.get, { stat = "Sum", label = "get errors" }],
-            [".", "Invocations", ".", var.jobs_lambda_function_names.process, { stat = "Sum", label = "process invocations" }],
             [".", "Errors", ".", var.jobs_lambda_function_names.process, { stat = "Sum", label = "process errors" }],
           ]
         }
@@ -148,7 +134,7 @@ resource "aws_cloudwatch_dashboard" "main" {
       {
         type   = "metric"
         x      = 12
-        y      = 1
+        y      = 0
         width  = 12
         height = 6
         properties = {
@@ -167,11 +153,11 @@ resource "aws_cloudwatch_dashboard" "main" {
       {
         type   = "metric"
         x      = 0
-        y      = 7
+        y      = 6
         width  = 12
         height = 6
         properties = {
-          title  = "SQS queue depth"
+          title  = "SQS queues and DLQs"
           region = var.aws_region
           view   = "timeSeries"
           period = 60
@@ -186,17 +172,15 @@ resource "aws_cloudwatch_dashboard" "main" {
       {
         type   = "metric"
         x      = 12
-        y      = 7
+        y      = 6
         width  = 12
         height = 6
         properties = {
-          title  = "Notification service ECS health"
+          title  = "Notification service errors"
           region = var.aws_region
           view   = "timeSeries"
           period = 60
           metrics = [
-            ["AWS/ECS", "CPUUtilization", "ClusterName", var.ecs_cluster_name, "ServiceName", var.notification_service_name, { stat = "Average", label = "CPU %" }],
-            [".", "MemoryUtilization", ".", ".", ".", ".", { stat = "Average", label = "Memory %" }],
             ["Fluxon/${var.name_prefix}", "NotificationServiceErrors", { stat = "Sum", label = "log errors" }],
           ]
         }

@@ -1,4 +1,6 @@
 locals {
+  lambda_package_path = "${path.root}/.terraform/jobs-lambda.zip"
+
   function_names = {
     create  = "${var.name_prefix}-jobs-create"
     list    = "${var.name_prefix}-jobs-list"
@@ -18,23 +20,6 @@ locals {
     for key, value in local.lambda_environment : key => value
     if key != "AWS_REGION"
   }
-}
-
-resource "terraform_data" "deps" {
-  input = filesha256("${var.lambda_source_dir}/package-lock.json")
-
-  provisioner "local-exec" {
-    command     = "npm ci --omit=dev"
-    working_dir = var.lambda_source_dir
-  }
-}
-
-data "archive_file" "package" {
-  type        = "zip"
-  source_dir  = var.lambda_source_dir
-  output_path = "${path.root}/.terraform/jobs-lambda.zip"
-
-  depends_on = [terraform_data.deps]
 }
 
 resource "aws_iam_role" "main" {
@@ -119,8 +104,8 @@ resource "aws_lambda_function" "create" {
   role             = aws_iam_role.main.arn
   handler          = "index.createJob"
   runtime          = "nodejs20.x"
-  filename         = data.archive_file.package.output_path
-  source_code_hash = data.archive_file.package.output_base64sha256
+  filename         = local.lambda_package_path
+  source_code_hash = filebase64sha256(local.lambda_package_path)
   timeout          = 15
   memory_size      = 256
 
@@ -141,8 +126,8 @@ resource "aws_lambda_function" "list" {
   role             = aws_iam_role.main.arn
   handler          = "index.listJobs"
   runtime          = "nodejs20.x"
-  filename         = data.archive_file.package.output_path
-  source_code_hash = data.archive_file.package.output_base64sha256
+  filename         = local.lambda_package_path
+  source_code_hash = filebase64sha256(local.lambda_package_path)
   timeout          = 10
   memory_size      = 256
 
@@ -163,8 +148,8 @@ resource "aws_lambda_function" "get" {
   role             = aws_iam_role.main.arn
   handler          = "index.getJob"
   runtime          = "nodejs20.x"
-  filename         = data.archive_file.package.output_path
-  source_code_hash = data.archive_file.package.output_base64sha256
+  filename         = local.lambda_package_path
+  source_code_hash = filebase64sha256(local.lambda_package_path)
   timeout          = 10
   memory_size      = 256
 
@@ -185,8 +170,8 @@ resource "aws_lambda_function" "process" {
   role             = aws_iam_role.main.arn
   handler          = "index.processJob"
   runtime          = "nodejs20.x"
-  filename         = data.archive_file.package.output_path
-  source_code_hash = data.archive_file.package.output_base64sha256
+  filename         = local.lambda_package_path
+  source_code_hash = filebase64sha256(local.lambda_package_path)
   timeout          = 90
   memory_size      = 512
 
