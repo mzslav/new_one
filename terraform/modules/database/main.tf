@@ -83,7 +83,3 @@ resource "aws_cognito_user_pool_client" "main" {
   explicit_auth_flows          = ["ALLOW_USER_PASSWORD_AUTH", "ALLOW_REFRESH_TOKEN_AUTH"]
   supported_identity_providers = ["COGNITO"]
 }
-
-resource "aws_sns_topic" "notifications" {
-  name = "${var.name_prefix}-notifications-topic"
-}

@@ -22,7 +22,7 @@ get_repo() {
 }
 
 echo "=== Budowanie i wysyłanie obrazów Docker ==="
-for name in auth job media notification gateway; do
+for name in auth media notification gateway; do
   DIR="$ROOT/services/${name}-service"
   [ "$name" == "gateway" ] && DIR="$ROOT/api-gateway"
 

@@ -1,5 +1,6 @@
 const express = require('express');
 const { connectDynamo } = require('./db/dynamo');
+const { startNotificationConsumer } = require('./queue/sqsConsumer');
 const notificationRoutes = require('./routes/notifications');
 
 const app = express();
@@ -22,7 +23,16 @@ async function start() {
       await new Promise((r) => setTimeout(r, 2000));
     }
   }
-  app.listen(PORT, () => console.log(`notification-service listening on :${PORT}`));
+  const server = app.listen(PORT, () => console.log(`notification-service listening on :${PORT}`));
+  const consumer = startNotificationConsumer();
+
+  function shutdown() {
+    consumer.stop();
+    server.close(() => process.exit(0));
+  }
+
+  process.on('SIGTERM', shutdown);
+  process.on('SIGINT', shutdown);
 }
 
 start().catch((err) => {

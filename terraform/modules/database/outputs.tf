@@ -26,7 +26,3 @@ output "cognito_user_pool_id" {
 output "cognito_client_id" {
   value = aws_cognito_user_pool_client.main.id
 }
-
-output "sns_topic_arn" {
-  value = aws_sns_topic.notifications.arn
-}

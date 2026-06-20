@@ -1,5 +1,6 @@
 const express = require('express');
 const axios = require('axios');
+const { SQSClient, SendMessageCommand } = require('@aws-sdk/client-sqs');
 const { verifyToken } = require('../middleware/auth');
 const { pool } = require('../db/pool');
 
@@ -7,9 +8,10 @@ const router = express.Router();
 
 const VALID_ACTIONS = new Set(['TRANSCRIBE', 'TTS', 'SUMMARIZE', 'ENHANCE', 'TRANSLATE']);
 const JOB_DELAY_MS = Number(process.env.JOB_DELAY_MS) || 10000;
-const NOTIFICATION_URL = process.env.NOTIFICATION_SERVICE_URL;
 const MEDIA_URL = process.env.MEDIA_SERVICE_URL;
 const INTERNAL_SECRET = process.env.INTERNAL_WEBHOOK_SECRET;
+const NOTIFICATIONS_QUEUE_URL = process.env.NOTIFICATIONS_QUEUE_URL;
+const sqsClient = new SQSClient({ region: process.env.AWS_REGION || 'eu-north-1' });
 
 function serializeJob(row) {
   return {
@@ -23,6 +25,35 @@ function serializeJob(row) {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
+}
+
+async function publishNotificationEvent({ userId, job, outputFileName }) {
+  if (!NOTIFICATIONS_QUEUE_URL) {
+    throw new Error('NOTIFICATIONS_QUEUE_URL is not configured');
+  }
+
+  const event = {
+    eventId: `job:${job.id}:completed`,
+    type: 'JOB_COMPLETED',
+    userId: String(userId),
+    jobId: String(job.id),
+    message: `${job.action_type} finished - download ${outputFileName}`,
+    status: 'Completed',
+    createdAt: new Date().toISOString(),
+  };
+
+  await sqsClient.send(
+    new SendMessageCommand({
+      QueueUrl: NOTIFICATIONS_QUEUE_URL,
+      MessageBody: JSON.stringify(event),
+      MessageAttributes: {
+        eventType: {
+          DataType: 'String',
+          StringValue: event.type,
+        },
+      },
+    })
+  );
 }
 
 async function completeJob(jobId, userId) {
@@ -58,16 +89,11 @@ async function completeJob(jobId, userId) {
       [outputFileId, outputFileName, jobId]
     );
 
-    await axios.post(
-      `${NOTIFICATION_URL}/api/notifications/internal`,
-      {
-        userId,
-        jobId: job.id,
-        message: `${job.action_type} finished — download ${outputFileName}`,
-        status: 'Completed',
-      },
-      { headers: { 'X-Internal-Secret': INTERNAL_SECRET }, timeout: 5000 }
-    );
+    try {
+      await publishNotificationEvent({ userId, job, outputFileName });
+    } catch (notificationErr) {
+      console.error('publish notification event error', notificationErr.message);
+    }
   } catch (err) {
     console.error('completeJob error', err.message);
     await pool.query(

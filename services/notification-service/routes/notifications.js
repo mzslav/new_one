@@ -1,44 +1,29 @@
 const express = require('express');
-const crypto = require('crypto');
-const { PutCommand, QueryCommand, UpdateCommand } = require('@aws-sdk/lib-dynamodb');
-const { SNSClient, PublishCommand } = require("@aws-sdk/client-sns");
+const { QueryCommand, UpdateCommand } = require('@aws-sdk/lib-dynamodb');
 const { verifyToken } = require('../middleware/auth');
 const { getDb } = require('../db/dynamo');
+const { saveNotificationEvent } = require('../lib/notificationEvents');
 
 const router = express.Router();
 const TABLE_NAME = process.env.NOTIFICATIONS_TABLE || 'fluxon-notifications';
-
-const snsClient = new SNSClient({ region: process.env.AWS_REGION });
 
 router.post('/internal', async (req, res) => {
   const provided = req.headers['x-internal-secret'];
   if (!provided || provided !== process.env.INTERNAL_WEBHOOK_SECRET) return res.status(401).json({ error: 'Unauthorized' });
 
-  const { userId, jobId, message, status } = req.body || {};
+  const { eventId, userId, jobId, message, status, createdAt } = req.body || {};
   if (!userId || !jobId || !message) return res.status(400).json({ error: 'Required fields missing' });
 
   try {
-    const doc = {
-      userId: String(userId),
-      createdAt: new Date().toISOString(),
-      id: crypto.randomUUID(),
-      jobId: String(jobId),
-      message: String(message),
-      status: status ? String(status) : 'info',
-      read: false,
-    };
-    
-    await getDb().send(new PutCommand({ TableName: TABLE_NAME, Item: doc }));
-
-    if (process.env.SNS_TOPIC_ARN) {
-      await snsClient.send(new PublishCommand({
-        TopicArn: process.env.SNS_TOPIC_ARN,
-        Message: JSON.stringify({ userId, jobId, message, status }),
-        Subject: 'New Notification from Fluxon',
-      }));
-    }
-
-    return res.status(201).json({ id: doc.id });
+    const result = await saveNotificationEvent({
+      eventId: eventId || `legacy:${jobId}:${status || 'info'}`,
+      userId,
+      jobId,
+      message,
+      status,
+      createdAt,
+    });
+    return res.status(result.duplicate ? 200 : 201).json({ id: result.id, duplicate: result.duplicate });
   } catch (err) {
     console.error('save notification error', err);
     return res.status(500).json({ error: 'Failed to save notification' });
@@ -61,7 +46,7 @@ router.get('/', verifyToken, async (req, res) => {
       message: n.message,
       status: n.status,
       read: Boolean(n.read),
-      createdAt: n.createdAt,
+      createdAt: n.occurredAt || n.createdAt,
     })));
   } catch (err) {
     console.error('list notifications error', err);
