@@ -124,10 +124,10 @@ resource "aws_cloudwatch_dashboard" "main" {
           view   = "timeSeries"
           period = 60
           metrics = [
-            [".", "Errors", ".", var.jobs_lambda_function_names.create, { stat = "Sum", label = "create errors" }],
-            [".", "Errors", ".", var.jobs_lambda_function_names.list, { stat = "Sum", label = "list errors" }],
-            [".", "Errors", ".", var.jobs_lambda_function_names.get, { stat = "Sum", label = "get errors" }],
-            [".", "Errors", ".", var.jobs_lambda_function_names.process, { stat = "Sum", label = "process errors" }],
+            ["AWS/Lambda", "Errors", "FunctionName", var.jobs_lambda_function_names.create, { stat = "Sum", label = "create errors" }],
+            ["AWS/Lambda", "Errors", "FunctionName", var.jobs_lambda_function_names.list, { stat = "Sum", label = "list errors" }],
+            ["AWS/Lambda", "Errors", "FunctionName", var.jobs_lambda_function_names.get, { stat = "Sum", label = "get errors" }],
+            ["AWS/Lambda", "Errors", "FunctionName", var.jobs_lambda_function_names.process, { stat = "Sum", label = "process errors" }],
           ]
         }
       },
