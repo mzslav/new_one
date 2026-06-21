@@ -60,6 +60,7 @@ resource "aws_cloudwatch_metric_alarm" "sqs_visible_messages" {
   }
 }
 
+
 resource "aws_cloudwatch_metric_alarm" "sqs_dlq_messages" {
   for_each = {
     jobs          = var.jobs_dlq_name
@@ -80,6 +81,7 @@ resource "aws_cloudwatch_metric_alarm" "sqs_dlq_messages" {
     QueueName = each.value
   }
 }
+
 
 resource "aws_cloudwatch_log_metric_filter" "notification_errors" {
   name           = "${var.name_prefix}-notification-errors"
@@ -110,6 +112,8 @@ resource "aws_cloudwatch_metric_alarm" "notification_service_errors" {
 resource "aws_cloudwatch_dashboard" "main" {
   dashboard_name = "${var.name_prefix}-operations"
 
+  # Dashboard zostawia tylko metryki: Lambda, SQS, DLQ
+  # oraz bledy notification-service.
   dashboard_body = jsonencode({
     widgets = [
       {

@@ -9,6 +9,7 @@ resource "aws_sqs_queue" "notifications" {
   visibility_timeout_seconds = 60
   message_retention_seconds  = 345600
 
+  # Po 5 nieudanych probach przetworzenia wiadomosc trafia do DLQ
   redrive_policy = jsonencode({
     deadLetterTargetArn = aws_sqs_queue.notifications_dlq.arn
     maxReceiveCount     = 5

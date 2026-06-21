@@ -16,6 +16,7 @@ resource "aws_s3_bucket_public_access_block" "site" {
   restrict_public_buckets = false
 }
 
+
 resource "aws_s3_bucket_website_configuration" "site" {
   bucket = aws_s3_bucket.site.id
 
@@ -27,6 +28,7 @@ resource "aws_s3_bucket_website_configuration" "site" {
     key = "index.html"
   }
 }
+
 
 resource "aws_s3_bucket_policy" "site" {
   bucket = aws_s3_bucket.site.id

@@ -161,8 +161,9 @@ module "ecs_notification" {
   max_tasks                     = var.ecs_max_tasks
   aws_region                    = var.aws_region
   environment = merge(local.common_env, {
-    PORT                           = "3004"
-    NOTIFICATIONS_TABLE            = module.database.notifications_table_name
+    PORT                = "3004"
+    NOTIFICATIONS_TABLE = module.database.notifications_table_name
+
     NOTIFICATIONS_QUEUE_URL        = module.queues.notifications_queue_url
     SQS_WAIT_TIME_SECONDS          = "20"
     SQS_VISIBILITY_TIMEOUT_SECONDS = "60"
@@ -218,6 +219,7 @@ module "ecs_gateway" {
   attach_to_alb                 = true
   alb_target_group_arn          = module.alb.gateway_target_group_arn
   environment                   = { PORT = "80" }
+
 
   depends_on = [module.ecs_auth, module.ecs_media, module.ecs_notification]
 }

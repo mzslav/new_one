@@ -51,6 +51,7 @@ resource "aws_iam_role_policy" "main" {
     Version = "2012-10-17"
     Statement = [
       {
+
         Effect = "Allow"
         Action = [
           "sqs:SendMessage",
@@ -98,6 +99,7 @@ resource "aws_cloudwatch_log_group" "main" {
   name              = "/aws/lambda/${each.value}"
   retention_in_days = 3
 }
+
 
 resource "aws_lambda_function" "create" {
   function_name    = local.function_names.create
@@ -187,6 +189,7 @@ resource "aws_lambda_function" "process" {
   depends_on = [aws_cloudwatch_log_group.main]
 }
 
+# Gdy w jobs queue pojawi sie komunikat, wywolac funkcje process.
 resource "aws_lambda_event_source_mapping" "jobs_processing" {
   event_source_arn = var.jobs_queue_arn
   function_name    = aws_lambda_function.process.arn
@@ -194,6 +197,8 @@ resource "aws_lambda_event_source_mapping" "jobs_processing" {
   enabled          = true
 }
 
+# ALB nie wywoluje funkcji po nazwie handlera. Najpierw kieruje request do
+# target group, a target group jest dopiero podlaczona do konkretnej Lambdy.
 resource "aws_lb_target_group" "jobs_options" {
   name        = "${var.name_prefix}-jobs-opt-tg"
   target_type = "lambda"
@@ -213,6 +218,7 @@ resource "aws_lb_target_group" "jobs_get" {
   name        = "${var.name_prefix}-jobs-get-tg"
   target_type = "lambda"
 }
+
 
 resource "aws_lambda_permission" "allow_alb_jobs_options" {
   statement_id  = "AllowExecutionFromALBJobsOptions"
@@ -246,6 +252,7 @@ resource "aws_lambda_permission" "allow_alb_jobs_get" {
   source_arn    = aws_lb_target_group.jobs_get.arn
 }
 
+# Attachment laczy target group z konkretna funkcja Lambda. 
 resource "aws_lb_target_group_attachment" "jobs_options" {
   target_group_arn = aws_lb_target_group.jobs_options.arn
   target_id        = aws_lambda_function.create.arn

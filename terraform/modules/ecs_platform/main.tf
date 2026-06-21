@@ -28,6 +28,7 @@ resource "aws_iam_role_policy_attachment" "ecs_execution" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
 
+
 resource "aws_iam_role" "task_auth" {
   name = "${var.name_prefix}-task-auth"
 
@@ -49,6 +50,7 @@ resource "aws_iam_role_policy" "task_auth" {
     }]
   })
 }
+
 
 resource "aws_iam_role" "task_media" {
   name = "${var.name_prefix}-task-media"
@@ -74,6 +76,7 @@ resource "aws_iam_role_policy" "task_media" {
     ]
   })
 }
+
 
 resource "aws_iam_role" "task_notification" {
   name = "${var.name_prefix}-task-notification"

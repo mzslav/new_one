@@ -8,20 +8,20 @@ resource "aws_db_subnet_group" "main" {
 }
 
 resource "aws_db_instance" "jobs" {
-  identifier                 = "${var.name_prefix}-jobs-db"
-  engine                     = "postgres"
-  engine_version             = "16"
-  instance_class             = var.db_instance_class
-  allocated_storage          = 20
-  db_name                    = "jobs_db"
-  username                   = var.db_username
-  password                   = var.db_password
-  db_subnet_group_name       = aws_db_subnet_group.main.name
-  vpc_security_group_ids     = [var.rds_security_group_id]
-  publicly_accessible        = false
-  skip_final_snapshot        = true
-  backup_retention_period    = 0
-  deletion_protection        = false
+  identifier              = "${var.name_prefix}-jobs-db"
+  engine                  = "postgres"
+  engine_version          = "16"
+  instance_class          = var.db_instance_class
+  allocated_storage       = 20
+  db_name                 = "jobs_db"
+  username                = var.db_username
+  password                = var.db_password
+  db_subnet_group_name    = aws_db_subnet_group.main.name
+  vpc_security_group_ids  = [var.rds_security_group_id]
+  publicly_accessible     = false
+  skip_final_snapshot     = true
+  backup_retention_period = 0
+  deletion_protection     = false
   storage_encrypted          = false
   auto_minor_version_upgrade = false
 
@@ -29,6 +29,7 @@ resource "aws_db_instance" "jobs" {
     Name = "${var.name_prefix}-jobs-db"
   }
 }
+
 
 resource "aws_dynamodb_table" "files" {
   name         = var.files_table_name
@@ -64,6 +65,7 @@ resource "aws_dynamodb_table" "notifications" {
   }
 }
 
+
 resource "aws_cognito_user_pool" "main" {
   name = "${var.name_prefix}-users"
 
@@ -74,6 +76,7 @@ resource "aws_cognito_user_pool" "main" {
     minimum_length = 8
   }
 }
+
 
 resource "aws_cognito_user_pool_client" "main" {
   name         = "${var.name_prefix}-web-client"
