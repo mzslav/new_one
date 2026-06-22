@@ -197,8 +197,7 @@ resource "aws_lambda_event_source_mapping" "jobs_processing" {
   enabled          = true
 }
 
-# ALB nie wywoluje funkcji po nazwie handlera. Najpierw kieruje request do
-# target group, a target group jest dopiero podlaczona do konkretnej Lambdy.
+
 resource "aws_lb_target_group" "jobs_options" {
   name        = "${var.name_prefix}-jobs-opt-tg"
   target_type = "lambda"
